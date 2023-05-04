@@ -1,45 +1,55 @@
 import os
 import pyautogui
-from PIL import Image
+import subprocess
+
+
 
 
 # define function to process each text file
 def process_text_file(filename):
 
     # open file 
-    os.system("open -a TextEdit")
+    subprocess.call(["open", "-a", "TextEdit", filename])
     
     # wait for editor to open
     pyautogui.sleep(1)
-    
+
     # minimize font size
     for i in range(9):
         pyautogui.hotkey("command", "-")
 
     # fullscreen
-    pyautogui.hotkey("control", "command", "f")
+    pyautogui.hotkey("ctrl", "command", "f")
     
     # zoom in
-    for i in range(2):
-        pyautogui.hotkey("shift", "command", ".")
+    for i in range(4):
+        pyautogui.keyDown('shift')
+        pyautogui.keyDown('command')
+        pyautogui.press('.')
+        pyautogui.keyUp('shift')
+        pyautogui.keyUp('command')
 
     #scroll to top left
-    pyautogui.moveTo(0, 0)
+    pyautogui.hotkey("command", "up")
 
     screenshot = pyautogui.screenshot()
     
     
     # save screenshot to file
     screenshot_filename = os.path.splitext(filename)[0] + ".png"
-    filepath = os.path.join(directory, screenshot_filename)
+    screenshot.save(screenshot_filename)
     
     # close text editor
     pyautogui.hotkey("command", "w")
 
+filename = "00.jpg.txt"
+
+process_text_file(filename)
+
+
 # iterate through all text files in directory
 for filename in os.listdir(os.getcwd()):
     if filename.endswith(".txt"):
-        # process each text file
         process_text_file(filename)
 
 
