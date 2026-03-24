@@ -1,113 +1,71 @@
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import os
-import pyautogui
-import subprocess
 
+ASCII_CHARS = ["Ñ", "@", "#", "S", "%", "?", "*", "+", ";", ":", ",", ".", " . ", " "]
 
-ASCII_CHARS = ["Ñ","@", "#", "S", "%", "?", "*", "+", ";", ":", ",", ".", " . ", " "]
-# ["█","▀", "▓", "╬", "╩", "░", "Γ", "φ", "µ", "Q", "≤", "Θ", "å", ".", ","]
-#["Ñ","@", "#", "S", "%", "?", "*", "+", ";", ":", ",", ".", " . "]
-
-
-def resize_image(images, new_width=250):
-    width, height = images.size
-    ratio = height/width/1.65
+def resize_image(image, new_width=250):
+    width, height = image.size
+    ratio = height / width / 1.65
     new_height = int(new_width * ratio)
-    resized_image = images.resize((new_width, new_height))
-    return(resized_image)
+    return image.resize((new_width, new_height))
 
-
-def grayify(images):
-    grayscale_image = images.convert("L")
-    return(grayscale_image)
-
-
-def pixels_to_ascii(images):
-    pixels = images.getdata()
+def pixels_to_ascii(image, new_width=250):
+    resized = resize_image(image, new_width)
+    pixels = resized.convert("L").getdata()
     characters = ""
     for pixel in pixels:
         if pixel == 255:
             characters += " "
         else:
             characters += ASCII_CHARS[pixel // 25]
-    return(characters)
+    pixel_count = len(characters)
+    lines = [characters[i:i + new_width] for i in range(0, pixel_count, new_width)]
+    return "\n".join(lines)
 
-def main(new_width=250):
-    for filename in os.listdir(os.getcwd()):
-        if filename.endswith(".jpg"):
-            with Image.open(os.path.join(os.getcwd(), filename)) as image:
-                new_image_data = pixels_to_ascii(grayify(resize_image(image)))
-                
-                pixel_count = len(new_image_data)  
-                ascii_image = "\n".join([new_image_data[index:(index+new_width)] for index in range(0, pixel_count, new_width)])
-                
-                new_filename = filename[:-4]
-                
-                with open(f"{new_filename}.txt", "w") as f:
-                    f.write(ascii_image)
-
-
-
-
-def frames(filename):
-
-
-    subprocess.call(["open", "-a", "TextEdit", filename])
-
-
-    pyautogui.sleep(1)
-
-
-    for i in range(10):
-        pyautogui.hotkey("command", "-")
-
-
-    pyautogui.hotkey("ctrl", "command", "f")
-   
-
-    for i in range(4):
-        pyautogui.keyDown('shift')
-        pyautogui.keyDown('command')
-        pyautogui.press('.')
-        pyautogui.keyUp('shift')
-        pyautogui.keyUp('command')
-
-
-    pyautogui.hotkey("command", "up")
-
-    screenshot = pyautogui.screenshot()
-   
-    pyautogui.sleep(1)
-
-    new_filename = filename[:-4]
-
-    screenshot_filename = new_filename + ".png"
-
-
-    screenshot_filename = os.path.join("final", f"{new_filename}.png")
-
+def ascii_to_image(ascii_text, font_path=None, font_size=14, bg=(0, 0, 0), fg=(255, 255, 255)):
     try:
-        os.mkdir("final")
-    except FileExistsError:
-        pass
+        font = ImageFont.truetype(font_path or "/System/Library/Fonts/Menlo.ttc", font_size)
+    except:
+        font = ImageFont.load_default()
 
+    lines = ascii_text.split("\n")
 
-    screenshot.save(screenshot_filename)
-   
-    pyautogui.sleep(1)
+    dummy = Image.new("RGB", (1, 1))
+    draw = ImageDraw.Draw(dummy)
+    bbox = draw.textbbox((0, 0), "A", font=font)
+    char_w = bbox[2] - bbox[0]
+    char_h = bbox[3] - bbox[1]
 
-    pyautogui.hotkey("command", "w")
+    img_w = char_w * max(len(line) for line in lines)
+    img_h = char_h * len(lines)
 
-    pyautogui.sleep(1)
+    img = Image.new("RGB", (img_w, img_h), color=bg)
+    draw = ImageDraw.Draw(img)
 
-filename = "00.txt"
+    for i, line in enumerate(lines):
+        draw.text((0, i * char_h), line, font=font, fill=fg)
 
-main()
+    return img
 
-frames(filename)
+def process_frames(input_dir=".", new_width=250, output_gif="output.gif", fps=10):
+    frames = []
+    jpg_files = sorted([f for f in os.listdir(input_dir) if f.endswith(".jpg")])
 
-for filename in os.listdir(os.getcwd()):
-    if filename.endswith(".txt"):
-        frames(filename)
+    for filename in jpg_files:
+        with Image.open(os.path.join(input_dir, filename)) as image:
+            ascii_text = pixels_to_ascii(image, new_width)
+            frame_img = ascii_to_image(ascii_text)
+            frames.append(frame_img)
+            print(f"Rendered {filename}")
 
+    if frames:
+        frames[0].save(
+            output_gif,
+            save_all=True,
+            append_images=frames[1:],
+            loop=0,
+            duration=int(1000 / fps)
+        )
+        print(f"Saved GIF: {output_gif}")
 
+process_frames()
